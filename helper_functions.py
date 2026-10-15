@@ -70,11 +70,44 @@ def neighbor_joining(distances: np.ndarray, labels: list) -> Node:
         A root node of the neighbor joining tree.
 
     """
+    D = np.array(distances, dtype=float)
     
-    self.tree = Node()
+    # Leaves first, new internal nodes append to the end of the list/matrix
+    nodes = [Node(name, None, 0.0, None, 0.0) for name in labels]
+    counter = 0
 
-    raise NotImplementedError()
+    while len(nodes) > 2:
+        n = len(nodes)
+        r = D.sum(axis=1)
 
+        # Q-Matrix: Q_ij = (n-2) * d_ij - r_i - r_j
+        Q = (n - 2) * D - r[:, None] - r[None, :]
+        np.fill_diagonal(Q, np.inf) # never join a node with itself
+
+        i, j = np.unravel_index(np.argmin(Q), Q.shape)
+
+        # Branch lenghts from joined pair to new node u
+        d_iu = D[i, j] / 2 + (r[i] - r[j]) / (2 * (n-2))
+        d_ju = D[i, j] - d_iu
+
+        counter += 1
+        u = Node(f"node_{counter}", nodes[i], d_iu, nodes[j], d_ju)
+
+        # Distances from u to every remaining node k:
+        keep = [k for k in range(n) if k not in (i,j)]
+        d_u = (D[i, keep] + D[j, keep] - D[i,j]) / 2
+
+        # Build the reduced matrix with u appeneded at the end
+        newD = np.zeros((len(keep) + 1, len(keep) + 1))
+        newD[:-1, :-1] = D[np.ix_(keep, keep)]
+        newD[-1, :-1] = d_u
+        newD[:-1, -1] = d_u
+        D = newD
+        nodes = [nodes[k] for k in keep] + [u]
+
+    # Last two nodes 
+    half = D[0,1] / 2
+    return Node("root", nodes[0], half, nodes[1], half)
 
 def plot_nj_tree(tree: Node, ax: Axes = None, **kwargs) -> None:
     """A function for plotting neighbor joining phylogeny dendrogram.
