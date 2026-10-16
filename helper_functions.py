@@ -177,6 +177,7 @@ def plot_nj_tree(tree: Node, ax: Axes = None, root_stub=0.2, label_pad=0.25,
     span = max_x + root_stub
     ax.set_xlim(-root_stub - 0.02 * span, max_x + label_pad * span)
     ax.set_ylim(-0.7, next_leaf_y - 0.3)
+    ax.set_yticks([])
     ax.set_xlabel(xlabel)
     for side in ("top", "right"):
         ax.spines[side].set_visible(False)
@@ -274,7 +275,34 @@ def sort_children_by_leaves(tree: Node) -> None:
         The root node of the tree.
 
     """
-    raise NotImplementedError()
+    def count_and_sort(node):
+        if node is None:
+            return 0
+        if node.left is None and node.right is None:
+            return 1
+        n_left = count_and_sort(node.left)
+        n_right = count_and_sort(node.right)
+        if n_left > n_right:
+            node.left, node.right = node.right, node.left
+            node.left_distance, node.right_distance = node.right_distance, node.left_distance
+        return n_left + n_right
+
+    count_and_sort(tree)
+
+def hamming_matrix(seqs):
+    """Pairwise Hamming distances (mismatch counts, gaps included) between aligned sequences."""
+    # np.array raises a ValueError if the sequences are not all the same length
+    arr = np.array([np.frombuffer(s.upper().encode(), dtype=np.uint8) for s in seqs])
+    return (arr[:, None, :] != arr[None, :, :]).sum(axis=2).astype(float)
+
+
+def find_leaf(node, text):
+    """Return the first leaf whose name contains `text`, or None."""
+    if node is None:
+        return None
+    if node.left is None and node.right is None:
+        return node if text in node.name else None
+    return find_leaf(node.left, text) or find_leaf(node.right, text)
 
 
 def plot_nj_tree_radial(tree: Node, ax: Axes = None, **kwargs) -> None:
