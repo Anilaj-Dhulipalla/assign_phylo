@@ -109,7 +109,9 @@ def neighbor_joining(distances: np.ndarray, labels: list) -> Node:
     half = D[0,1] / 2
     return Node("root", nodes[0], half, nodes[1], half)
 
-def plot_nj_tree(tree: Node, ax: Axes = None, **kwargs) -> None:
+def plot_nj_tree(tree: Node, ax: Axes = None, root_stub=0.2, label_pad=0.25,
+                 color="k", linewidth=1.5, fontsize=12,
+                 xlabel="Genetic Distance", **kwargs) -> None:
     """A function for plotting neighbor joining phylogeny dendrogram.
 
     Parameters
@@ -132,6 +134,52 @@ def plot_nj_tree(tree: Node, ax: Axes = None, **kwargs) -> None:
     >>> fig.savefig("example.png")
 
     """
+
+    import matplotlib.pyplot as plt
+
+    if ax is None: 
+        ax = plt.gca()
+
+    next_leaf_y = 0 
+    max_x = 0.0     # deepest leaf used to set x-limits 
+
+    def line(xs, ys):
+        ax.plot(xs, ys, color=color, lw=linewidth, solid_capstyle="projecting")
+
+    def draw(node, x):
+        """Draw the subtree below `node`, which sits at depth x. Returns node's y."""
+        nonlocal next_leaf_y, max_x
+
+        # leaf
+        if node.left is None and node.right is None:
+            y = next_leaf_y
+            next_leaf_y += 1
+            max_x = max(max_x, x)
+            ax.text(x, y, f"  {node.name}", color=color, fontsize=fontsize,
+                    verticalalignment="center")
+            return y
+        
+
+        x_left = x + node.left_distance
+        x_right = x + node.right_distance
+        y_left = draw(node.left, x_left)
+        y_right = draw(node.right, x_right)
+
+        line([x, x_left], [y_left, y_left])         # horizontal: distance to left child
+        line([x, x_right], [y_right, y_right])      # horizontal: distance to right child
+        line([x, x], [y_left, y_right])             # vertical: joins the two children
+        return (y_left + y_right) / 2
+    
+
+    y_root = draw(tree, 0.0)
+    line([-root_stub, 0], [y_root, y_root])
+
+    span = max_x + root_stub
+    ax.set_xlim(-root_stub - 0.02 * span, max_x + label_pad * span)
+    ax.set_ylim(-0.7, next_leaf_y - 0.3)
+    ax.set_xlabel(xlabel)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
 
     return ax
 
